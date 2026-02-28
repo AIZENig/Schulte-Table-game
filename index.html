@@ -1,0 +1,835 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>Schulte Table</title>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+/* ============================================================
+   CSS CUSTOM PROPERTIES — no magic numbers
+   ============================================================ */
+:root {
+  --gap:          6px;
+  --radius-cell:  10px;
+  --radius-btn:   8px;
+  --radius-sel:   8px;
+  --font-ui:      'Inter', sans-serif;
+  --transition-cell: background 0.1s, transform 0.08s, box-shadow 0.1s;
+  --progress-h:   3px;
+  --progress-color: #4caf7d;
+  --focus-outline: 2px solid #4caf7d;
+  --touch-highlight: rgba(76, 175, 125, 0.18);
+}
+
+/* ── RESET ── */
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+/* ── THEMES ── */
+body.theme-white {
+  --bg:               #ffffff;
+  --color:            #1a1a1a;
+  --cell-bg:          #f5f5f5;
+  --cell-border:      #e0e0e0;
+  --cell-hover:       #e8e8e8;
+  --cell-focus:       #dff0e8;
+  --cell-found-bg:    #d4edda;
+  --cell-found-color: #2e7d46;
+  --cell-wrong-bg:    #ffd6d6;
+  --btn-bg:           #1a1a1a;
+  --btn-color:        #fff;
+  --sel-bg:           #f5f5f5;
+  --sel-border:       #d0d0d0;
+  --dim:              #999;
+  --progress-track:   #e0e0e0;
+}
+body.theme-dark {
+  --bg:               #111111;
+  --color:            #f0f0f0;
+  --cell-bg:          #1e1e1e;
+  --cell-border:      #2e2e2e;
+  --cell-hover:       #272727;
+  --cell-focus:       #1a3326;
+  --cell-found-bg:    #1a3326;
+  --cell-found-color: #4caf7d;
+  --cell-wrong-bg:    #3a1a1a;
+  --btn-bg:           #f0f0f0;
+  --btn-color:        #111;
+  --sel-bg:           #1e1e1e;
+  --sel-border:       #333;
+  --dim:              #555;
+  --progress-track:   #2e2e2e;
+}
+body.theme-grey {
+  --bg:               #efefef;
+  --color:            #2c2c2c;
+  --cell-bg:          #e4e4e4;
+  --cell-border:      #cecece;
+  --cell-hover:       #dadada;
+  --cell-focus:       #cfe8d8;
+  --cell-found-bg:    #cfe8d8;
+  --cell-found-color: #2e7d46;
+  --cell-wrong-bg:    #f0d0d0;
+  --btn-bg:           #2c2c2c;
+  --btn-color:        #f0f0f0;
+  --sel-bg:           #e4e4e4;
+  --sel-border:       #c0c0c0;
+  --dim:              #888;
+  --progress-track:   #cecece;
+}
+
+/* ── BASE ── */
+body {
+  font-family: var(--font-ui);
+  background: var(--bg);
+  color: var(--color);
+  min-height: 100dvh;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 18px;
+  padding: 16px;
+  transition: background 0.3s, color 0.3s;
+}
+
+/* ── TOP BAR ── */
+#topbar {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+  justify-content: center;
+  align-items: center;
+}
+
+select {
+  background: var(--sel-bg);
+  border: 1px solid var(--sel-border);
+  color: var(--color);
+  font-family: var(--font-ui);
+  font-size: 14px;
+  font-weight: 500;
+  padding: 8px 12px;
+  border-radius: var(--radius-sel);
+  outline: none;
+  cursor: pointer;
+  transition: border-color 0.15s;
+}
+select:focus-visible {
+  outline: var(--focus-outline);
+  outline-offset: 2px;
+}
+select option { background: var(--sel-bg); color: var(--color); }
+
+/* ── TIMER ── */
+#timer {
+  font-size: 42px;
+  font-weight: 700;
+  letter-spacing: -1px;
+  min-width: 130px;
+  text-align: center;
+  font-variant-numeric: tabular-nums;
+  color: var(--color);
+  /* prevent layout shift while digits change */
+  font-feature-settings: "tnum";
+}
+
+/* ── STATS ROW ── */
+#statsrow {
+  display: flex;
+  gap: 24px;
+  font-size: 13px;
+  color: var(--dim);
+  font-weight: 500;
+  flex-wrap: wrap;
+  justify-content: center;
+}
+
+/* ── PROGRESS BAR ── */
+#pw {
+  width: 100%;
+  max-width: 480px;
+  height: var(--progress-h);
+  background: var(--progress-track);
+  border-radius: 99px;
+  overflow: hidden;
+}
+#pf {
+  height: 100%;
+  background: var(--progress-color);
+  border-radius: 99px;
+  width: 0%;
+  transition: width 0.2s ease;
+}
+
+/* ── GRID CONTAINER ── */
+#grid {
+  display: grid;
+  gap: var(--gap);
+  user-select: none;
+  /* GPU layer for smoother repaints */
+  will-change: contents;
+}
+
+/* ── CELL ── */
+.cell {
+  background: var(--cell-bg);
+  border: 1px solid var(--cell-border);
+  border-radius: var(--radius-cell);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 600;
+  cursor: pointer;
+  transition: var(--transition-cell);
+  /* Accessibility: make focusable */
+  outline: none;
+  position: relative;
+  /* Better mobile touch */
+  -webkit-tap-highlight-color: var(--touch-highlight);
+  touch-action: manipulation;
+}
+.cell:hover { background: var(--cell-hover); }
+
+/* Focus state — keyboard navigation (point 8 & 10) */
+.cell:focus-visible {
+  outline: var(--focus-outline);
+  outline-offset: 2px;
+  background: var(--cell-focus);
+}
+
+/* Active press — stronger feedback on mobile */
+.cell:active { transform: scale(0.91); }
+
+.cell.found {
+  background: var(--cell-found-bg);
+  color: var(--cell-found-color);
+  border-color: transparent;
+  cursor: default;
+  opacity: 0.62;
+  pointer-events: none; /* no re-clicks */
+}
+
+.cell.wrong {
+  background: var(--cell-wrong-bg);
+  animation: shake 0.28s ease;
+}
+
+/* Ripple feedback on correct tap (point 10) */
+.cell.correct-flash::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: var(--radius-cell);
+  background: rgba(76, 175, 125, 0.35);
+  animation: ripple 0.35s ease forwards;
+  pointer-events: none;
+}
+@keyframes ripple {
+  from { opacity: 1; transform: scale(0.85); }
+  to   { opacity: 0; transform: scale(1.05); }
+}
+@keyframes shake {
+  0%,100% { transform: translateX(0); }
+  25%     { transform: translateX(-7px); }
+  75%     { transform: translateX(7px); }
+}
+
+/* ── BUTTONS ── */
+.btn {
+  background: var(--btn-bg);
+  color: var(--btn-color);
+  border: none;
+  border-radius: var(--radius-btn);
+  font-family: var(--font-ui);
+  font-size: 14px;
+  font-weight: 600;
+  padding: 9px 22px;
+  cursor: pointer;
+  transition: opacity 0.15s, transform 0.1s;
+}
+.btn:hover  { opacity: 0.82; }
+.btn:active { transform: scale(0.96); }
+.btn:focus-visible {
+  outline: var(--focus-outline);
+  outline-offset: 2px;
+}
+.btn:disabled {
+  opacity: 0.3;
+  cursor: default;
+  pointer-events: none;
+}
+
+/* ── COMPLETION PANEL ── */
+#complete {
+  display: none;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  text-align: center;
+}
+#complete h2 { font-size: 24px; font-weight: 700; }
+#complete p  { font-size: 14px; color: var(--dim); }
+</style>
+</head>
+
+<body class="theme-white">
+
+<!-- ── CONTROLS ── -->
+<div id="topbar" role="toolbar" aria-label="Game controls">
+  <label for="sz" class="sr-only">Grid size</label>
+  <select id="sz" aria-label="Grid size">
+    <option value="3">3 × 3</option>
+    <option value="4">4 × 4</option>
+    <option value="5" selected>5 × 5</option>
+    <option value="6">6 × 6</option>
+    <option value="7">7 × 7</option>
+    <option value="8">8 × 8</option>
+    <option value="9">9 × 9</option>
+    <option value="10">10 × 10</option>
+  </select>
+
+  <label for="th" class="sr-only">Theme</label>
+  <select id="th" aria-label="Theme">
+    <option value="white">White</option>
+    <option value="dark">Dark</option>
+    <option value="grey">Grey</option>
+  </select>
+
+  <button class="btn" id="sBtn" aria-label="Start game">Start</button>
+  <button class="btn" id="rBtn" disabled aria-label="Reset game">Reset</button>
+</div>
+
+<!-- ── TIMER ── -->
+<div id="timer" role="timer" aria-live="off" aria-label="Elapsed time">00:00</div>
+
+<!-- ── STATS ── -->
+<div id="statsrow" aria-live="polite" aria-atomic="true">
+  <span>Progress: <span id="prog">—</span></span>
+  <span>Errors: <span id="errs">0</span></span>
+  <span>Best: <span id="best">—</span></span>
+</div>
+
+<!-- ── PROGRESS BAR ── -->
+<div id="pw" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0" aria-label="Completion progress">
+  <div id="pf"></div>
+</div>
+
+<!-- ── GRID ── -->
+<div
+  id="grid"
+  role="grid"
+  aria-label="Schulte table grid"
+  tabindex="-1"
+></div>
+
+<!-- ── COMPLETION ── -->
+<div id="complete" role="region" aria-live="assertive" aria-label="Game result">
+  <h2 id="ct"></h2>
+  <p  id="cm"></p>
+  <button class="btn" id="paBtn" style="margin-top:6px">Play Again</button>
+</div>
+
+<!-- ── SCREEN-READER ONLY HELPER ── -->
+<style>
+  .sr-only {
+    position: absolute; width: 1px; height: 1px;
+    padding: 0; margin: -1px; overflow: hidden;
+    clip: rect(0,0,0,0); white-space: nowrap; border: 0;
+  }
+</style>
+
+<script>
+'use strict';
+
+/* ================================================================
+   MODULE 1 — STORAGE MANAGER  (point 7)
+   Handles all localStorage I/O with quota & type safety.
+   ================================================================ */
+const StorageManager = (() => {
+  const PREFIX = 'schulte_best_';
+
+  function save(size, seconds) {
+    try {
+      localStorage.setItem(PREFIX + size, String(parseFloat(seconds.toFixed(3))));
+    } catch (e) {
+      // Quota exceeded or private-mode block — fail silently
+      console.warn('StorageManager: could not save best time.', e.name);
+    }
+  }
+
+  function load(size) {
+    try {
+      const raw = localStorage.getItem(PREFIX + size);
+      if (raw === null) return null;
+      const val = parseFloat(raw);
+      return isFinite(val) ? val : null;   // guard against corrupted data
+    } catch (e) {
+      return null;
+    }
+  }
+
+  // Preload all sizes on startup
+  function loadAll() {
+    const map = {};
+    for (let n = 3; n <= 10; n++) {
+      const v = load(n);
+      if (v !== null) map[n] = v;
+    }
+    return map;
+  }
+
+  return { save, load, loadAll };
+})();
+
+/* ================================================================
+   MODULE 2 — GAME ENGINE  (point 1, 3)
+   Pure logic — zero DOM access. Centralised state object.
+   ================================================================ */
+const GameEngine = (() => {
+
+  /* ---------- Centralised state (point 1) ---------- */
+  const state = {
+    status:      'idle',   // 'idle' | 'playing' | 'complete'
+    size:        5,
+    numbers:     [],       // flat array, index → displayed number
+    found:       new Set(),
+    nextTarget:  1,
+    total:       0,
+    t0:          0,        // start timestamp
+    errors:      0,
+    bests:       {},       // size → best seconds
+  };
+
+  /* ---------- Cryptographically better shuffle (point 3) ----------
+     Uses crypto.getRandomValues() when available, falls back to
+     Math.random() so it always works even in restricted contexts.   */
+  function secureRandom() {
+    if (typeof crypto !== 'undefined' && crypto.getRandomValues) {
+      const buf = new Uint32Array(1);
+      crypto.getRandomValues(buf);
+      return buf[0] / (0xFFFFFFFF + 1);
+    }
+    return Math.random();
+  }
+
+  function shuffle(n) {
+    const arr = Array.from({ length: n }, (_, i) => i + 1);
+    for (let i = arr.length - 1; i > 0; i--) {
+      const j = Math.floor(secureRandom() * (i + 1));
+      [arr[i], arr[j]] = [arr[j], arr[i]];
+    }
+    return arr;
+  }
+
+  /* ---------- Public API ---------- */
+  function init(size, bests) {
+    state.status     = 'playing';
+    state.size       = size;
+    state.total      = size * size;
+    state.numbers    = shuffle(state.total);
+    state.found      = new Set();
+    state.nextTarget = 1;
+    state.errors     = 0;
+    state.t0         = performance.now();
+    state.bests      = bests;
+  }
+
+  // Returns: 'correct' | 'wrong' | 'already_found' | 'not_playing'
+  function guess(cellIndex) {
+    if (state.status !== 'playing')          return 'not_playing';
+    if (state.found.has(cellIndex))          return 'already_found';
+    if (state.numbers[cellIndex] === state.nextTarget) {
+      state.found.add(cellIndex);
+      state.nextTarget++;
+      if (state.found.size === state.total) {
+        state.status = 'complete';
+      }
+      return 'correct';
+    }
+    state.errors++;
+    return 'wrong';
+  }
+
+  function getElapsed() {
+    if (state.status === 'idle') return 0;
+    return (performance.now() - state.t0) / 1000; // seconds
+  }
+
+  function getBestForSize(size) {
+    return state.bests[size] ?? null;
+  }
+
+  function recordBestIfNew(size, seconds) {
+    const prev = state.bests[size];
+    if (prev === null || prev === undefined || seconds < prev) {
+      state.bests[size] = seconds;
+      return true;
+    }
+    return false;
+  }
+
+  return { state, init, guess, getElapsed, getBestForSize, recordBestIfNew };
+})();
+
+/* ================================================================
+   MODULE 3 — UI RENDERER  (point 2, 4, 5, 10, 11)
+   All DOM read/write lives here.
+   ================================================================ */
+const UIRenderer = (() => {
+
+  /* ---- Element cache ---- */
+  const els = {
+    grid:     document.getElementById('grid'),
+    timer:    document.getElementById('timer'),
+    prog:     document.getElementById('prog'),
+    errs:     document.getElementById('errs'),
+    best:     document.getElementById('best'),
+    pf:       document.getElementById('pf'),
+    pw:       document.getElementById('pw'),
+    complete: document.getElementById('complete'),
+    ct:       document.getElementById('ct'),
+    cm:       document.getElementById('cm'),
+    sBtn:     document.getElementById('sBtn'),
+    rBtn:     document.getElementById('rBtn'),
+  };
+
+  let _currentSize = 0;
+  let _cellElements = []; // index → <div> reference for direct access
+
+  /* ---- Cell size calculation using visualViewport (point 11) ---- */
+  function calcCellSize(size) {
+    // visualViewport is more accurate on mobile (excludes browser chrome)
+    const vw = (window.visualViewport?.width  ?? window.innerWidth)  - 32;
+    const vh = (window.visualViewport?.height ?? window.innerHeight) - 230;
+    const avail = Math.min(vw, vh);
+    return Math.max(28, Math.floor((avail - (size - 1) * 6) / size));
+  }
+
+  /* ---- Build grid with DocumentFragment (point 2) ---- */
+  function buildGrid(size, numbers) {
+    _currentSize  = size;
+    _cellElements = [];
+
+    const cellSize = calcCellSize(size);
+    const fontSize = Math.max(11, Math.min(32, Math.floor(cellSize * 0.42)));
+
+    // Use DocumentFragment — single reflow instead of N reflows
+    const frag = document.createDocumentFragment();
+
+    numbers.forEach((val, i) => {
+      const el = document.createElement('div');
+      el.className   = 'cell';
+      el.textContent = val;
+      el.style.cssText =
+        `width:${cellSize}px;height:${cellSize}px;font-size:${fontSize}px`;
+
+      // ARIA (point 8)
+      el.setAttribute('role', 'gridcell');
+      el.setAttribute('tabindex', '0');
+      el.setAttribute('aria-label', `Number ${val}`);
+      el.setAttribute('data-index', i);
+
+      frag.appendChild(el);
+      _cellElements[i] = el;
+    });
+
+    els.grid.innerHTML = '';
+    els.grid.style.gridTemplateColumns = `repeat(${size}, ${cellSize}px)`;
+    els.grid.appendChild(frag);  // single DOM write
+    els.grid.style.display = 'grid';
+  }
+
+  /* ---- Resize existing grid without full rebuild (point 4) ---- */
+  function resizeGrid(size) {
+    if (_cellElements.length === 0) return;
+    const cellSize = calcCellSize(size);
+    const fontSize = Math.max(11, Math.min(32, Math.floor(cellSize * 0.42)));
+    els.grid.style.gridTemplateColumns = `repeat(${size}, ${cellSize}px)`;
+    _cellElements.forEach(el => {
+      el.style.width    = cellSize + 'px';
+      el.style.height   = cellSize + 'px';
+      el.style.fontSize = fontSize + 'px';
+    });
+  }
+
+  /* ---- Cell state updates ---- */
+  function markFound(index) {
+    const el = _cellElements[index];
+    if (!el) return;
+    el.classList.remove('wrong');
+    el.classList.add('found', 'correct-flash');
+    el.setAttribute('aria-disabled', 'true');
+    el.setAttribute('tabindex', '-1');
+    // Remove ripple class after animation
+    setTimeout(() => el.classList.remove('correct-flash'), 360);
+  }
+
+  function markWrong(index) {
+    const el = _cellElements[index];
+    if (!el) return;
+    el.classList.add('wrong');
+    setTimeout(() => el.classList.remove('wrong'), 280);
+  }
+
+  /* ---- Stats ---- */
+  function updateProgress(done, total) {
+    const pct = Math.round(done / total * 100);
+    els.prog.textContent    = `${done} / ${total}`;
+    els.pf.style.width      = pct + '%';
+    els.pw.setAttribute('aria-valuenow', pct);
+  }
+
+  function updateErrors(n) {
+    els.errs.textContent = n;
+  }
+
+  function updateBest(seconds) {
+    els.best.textContent = seconds !== null ? fmtTime(seconds) : '—';
+  }
+
+  function updateTimer(seconds) {
+    els.timer.textContent = fmtTime(seconds);
+  }
+
+  /* ---- Screen transitions ---- */
+  function showGame() {
+    els.complete.style.display = 'none';
+    els.grid.style.display     = 'grid';
+    els.sBtn.disabled          = true;
+    els.rBtn.disabled          = false;
+  }
+
+  function showComplete(isNew, size, seconds, errors) {
+    els.grid.style.display     = 'none';
+    els.complete.style.display = 'flex';
+    els.sBtn.disabled          = false;
+    els.ct.textContent = isNew ? '🏅 New Best!' : '✓ Complete!';
+    els.cm.textContent =
+      `${size}×${size}  ·  ${fmtTime(seconds)}  ·  ` +
+      `${errors} error${errors !== 1 ? 's' : ''}`;
+  }
+
+  function showIdle() {
+    els.grid.innerHTML         = '';
+    els.grid.style.display     = 'grid';
+    els.complete.style.display = 'none';
+    els.timer.textContent      = '00:00';
+    els.prog.textContent       = '—';
+    els.errs.textContent       = '0';
+    els.pf.style.width         = '0%';
+    els.pw.setAttribute('aria-valuenow', 0);
+    els.sBtn.disabled          = false;
+    els.rBtn.disabled          = true;
+    _cellElements              = [];
+  }
+
+  /* ---- Helpers ---- */
+  function fmtTime(s) {
+    const m  = Math.floor(s / 60);
+    const sc = Math.floor(s % 60);
+    return `${m < 10 ? '0' : ''}${m}:${sc < 10 ? '0' : ''}${sc}`;
+  }
+
+  function getGridEl() { return els.grid; }
+
+  return {
+    buildGrid, resizeGrid,
+    markFound, markWrong,
+    updateProgress, updateErrors, updateBest, updateTimer,
+    showGame, showComplete, showIdle,
+    getGridEl,
+  };
+})();
+
+/* ================================================================
+   MODULE 4 — EVENT CONTROLLER  (point 5, 6, 8)
+   Central event hub. Uses delegation for grid clicks.
+   ================================================================ */
+const EventController = (() => {
+
+  let _tickerRaf   = null;   // requestAnimationFrame id for timer
+  let _isStarting  = false;  // debounce flag (point 1 — no double-start)
+  let _focusedIndex = -1;    // keyboard navigation tracking
+
+  /* ---- Timer loop using rAF + Date.now (point 6) ---- */
+  function startTicker() {
+    stopTicker();
+    function tick() {
+      UIRenderer.updateTimer(GameEngine.getElapsed());
+      _tickerRaf = requestAnimationFrame(tick);
+    }
+    _tickerRaf = requestAnimationFrame(tick);
+  }
+  function stopTicker() {
+    if (_tickerRaf !== null) {
+      cancelAnimationFrame(_tickerRaf);
+      _tickerRaf = null;
+    }
+  }
+
+  /* ---- Start game ---- */
+  function startGame() {
+    if (_isStarting) return;          // prevent rapid double-click (point 1)
+    if (GameEngine.state.status === 'playing') return;
+    _isStarting = true;
+    setTimeout(() => { _isStarting = false; }, 400);
+
+    const size  = parseInt(document.getElementById('sz').value);
+    const bests = StorageManager.loadAll();
+
+    GameEngine.init(size, bests);
+    UIRenderer.showGame();
+    UIRenderer.buildGrid(size, GameEngine.state.numbers);
+    UIRenderer.updateProgress(0, GameEngine.state.total);
+    UIRenderer.updateErrors(0);
+    UIRenderer.updateBest(GameEngine.getBestForSize(size));
+
+    _focusedIndex = -1;
+    startTicker();
+  }
+
+  /* ---- Reset game ---- */
+  function resetGame() {
+    stopTicker();
+    GameEngine.state.status = 'idle';
+    UIRenderer.showIdle();
+    UIRenderer.updateTimer(0);
+  }
+
+  /* ---- Process a cell guess ---- */
+  function processGuess(cellIndex) {
+    const result = GameEngine.guess(cellIndex);
+    const s      = GameEngine.state;
+
+    if (result === 'correct') {
+      UIRenderer.markFound(cellIndex);
+      UIRenderer.updateProgress(s.found.size, s.total);
+
+      if (s.status === 'complete') {
+        stopTicker();
+        const elapsed = GameEngine.getElapsed();
+        UIRenderer.updateTimer(elapsed);
+        const isNew = GameEngine.recordBestIfNew(s.size, elapsed);
+        if (isNew) StorageManager.save(s.size, elapsed);
+        UIRenderer.showComplete(isNew, s.size, elapsed, s.errors);
+      }
+
+    } else if (result === 'wrong') {
+      UIRenderer.markWrong(cellIndex);
+      UIRenderer.updateErrors(s.errors);
+    }
+  }
+
+  /* ---- Grid click delegation (point 5) ---- */
+  // ONE listener on the container, not N listeners on cells
+  function onGridClick(e) {
+    const target = e.target.closest('.cell');
+    if (!target) return;
+    const idx = parseInt(target.getAttribute('data-index'), 10);
+    if (!isNaN(idx)) processGuess(idx);
+  }
+
+  /* ---- Keyboard navigation for grid (point 8) ---- */
+  function onGridKeydown(e) {
+    const size = GameEngine.state.size;
+    if (!size) return;
+
+    const cells = UIRenderer.getGridEl().querySelectorAll('.cell:not(.found)');
+    if (!cells.length) return;
+
+    const allCells = UIRenderer.getGridEl().querySelectorAll('.cell');
+    let idx = _focusedIndex;
+
+    // Arrow key movement through ALL cells (including found, skip them)
+    const moves = { ArrowRight: 1, ArrowLeft: -1, ArrowDown: size, ArrowUp: -size };
+    if (moves[e.key] !== undefined) {
+      e.preventDefault();
+      let next = idx + moves[e.key];
+      next = Math.max(0, Math.min(allCells.length - 1, next));
+      _focusedIndex = next;
+      allCells[next]?.focus();
+      return;
+    }
+    // Enter / Space = confirm selection
+    if (e.key === 'Enter' || e.key === ' ') {
+      e.preventDefault();
+      if (idx >= 0) processGuess(idx);
+    }
+  }
+
+  // Track which cell has focus (for arrow key starting point)
+  function onCellFocus(e) {
+    const target = e.target.closest('.cell');
+    if (target) {
+      _focusedIndex = parseInt(target.getAttribute('data-index'), 10);
+    }
+  }
+
+  /* ---- Responsive resize with debounce (point 4, 11) ---- */
+  let _resizeTimer = null;
+  function onResize() {
+    clearTimeout(_resizeTimer);
+    _resizeTimer = setTimeout(() => {
+      if (GameEngine.state.status !== 'idle') {
+        UIRenderer.resizeGrid(GameEngine.state.size);
+      }
+    }, 120); // debounce 120ms
+  }
+
+  /* ---- Bind all events ---- */
+  function init() {
+    const gridEl = UIRenderer.getGridEl();
+    const sBtn   = document.getElementById('sBtn');
+    const rBtn   = document.getElementById('rBtn');
+    const paBtn  = document.getElementById('paBtn');
+    const szSel  = document.getElementById('sz');
+    const thSel  = document.getElementById('th');
+
+    sBtn.addEventListener('click',   startGame);
+    rBtn.addEventListener('click',   resetGame);
+    paBtn.addEventListener('click',  startGame);
+
+    szSel.addEventListener('change', e => {
+      if (GameEngine.state.status !== 'idle') resetGame();
+    });
+    thSel.addEventListener('change', e => {
+      document.body.className = 'theme-' + e.target.value;
+    });
+
+    // Grid — single delegated listener (point 5)
+    gridEl.addEventListener('click',   onGridClick);
+    gridEl.addEventListener('keydown', onGridKeydown);
+    gridEl.addEventListener('focusin', onCellFocus);
+
+    // Responsive resize — visualViewport preferred (point 4, 11)
+    if (window.visualViewport) {
+      window.visualViewport.addEventListener('resize', onResize);
+    } else {
+      window.addEventListener('resize', onResize);
+    }
+
+    // Keyboard shortcuts
+    window.addEventListener('keydown', e => {
+      // Only fire shortcuts when focus is NOT inside the grid
+      if (document.activeElement?.closest('#grid')) return;
+      if (e.code === 'Space') {
+        e.preventDefault();
+        if (GameEngine.state.status === 'idle' ||
+            GameEngine.state.status === 'complete') startGame();
+        else resetGame();
+      }
+      if (e.code === 'KeyR') resetGame();
+    });
+  }
+
+  return { init };
+})();
+
+/* ================================================================
+   BOOTSTRAP
+   ================================================================ */
+EventController.init();
+</script>
+</body>
+</html>
